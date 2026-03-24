@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Be1 AI Terminal</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="terminal-container">
+        <header class="terminal-header">
+            <div class="status-lights">
+                <span class="light red"></span>
+                <span class="light yellow"></span>
+                <span class="light green"></span>
+            </div>
+            <div class="title">Be1 // SYSTEM ACCESS TERMINAL</div>
+        </header>
+
+        <main id="chat-window" class="chat-window">
+            <div class="message system">
+                <span class="prompt">root@Be1:~$</span> Initializing AI core...<br>
+                <span class="prompt">root@Be1:~$</span> Access granted. Welcome. I am Be1, your project assistant. Type a message to begin.
+            </div>
+        </main>
+
+        <form id="chat-form" class="input-area">
+            <span class="prompt">user@guest:~$</span>
+            <input 
+                type="text" 
+                id="message-input" 
+                autocomplete="off" 
+                placeholder="Enter command or query..." 
+                required
+            >
+            <button type="submit" id="send-btn">EXECUTE</button>
+        </form>
+    </div>
+
+    <div class="scanline"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
