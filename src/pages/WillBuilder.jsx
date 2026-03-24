@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, ChevronLeft, Save, Check, User, Users, Building, PieChart, Heart, AlertCircle } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Save, Check, User, Users, Building, PieChart, Heart, AlertCircle, ShieldCheck, Phone, ArrowRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { processWillDocument } from '../lib/pdf';
+import { auth } from '../firebase';
+import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
 
 const initialData = {
   personalInfo: { name: '', dob: '', aadhaar: '', address: '', phone: '' },
@@ -18,6 +20,7 @@ const steps = [
   { id: 3, label: 'Assets',       icon: <Building size={16} />,  desc: 'Inventory' },
   { id: 4, label: 'Distribution', icon: <PieChart size={16} />,  desc: 'Allocation' },
   { id: 5, label: 'Wishes',       icon: <Heart size={16} />,     desc: 'Final notes' },
+  { id: 6, label: 'Verify',       icon: <ShieldCheck size={16} />, desc: 'Final OTP' },
 ];
 
 const WillBuilder = () => {
@@ -25,14 +28,48 @@ const WillBuilder = () => {
   const [formData, setFormData] = useState(initialData);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const { user } = useAuth();
+  const [otp, setOtp] = useState('');
+  const [confirmationResult, setConfirmationResult] = useState(null);
+  const { user, isDemoMode } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (step === 6 && !window.recaptchaVerifierB) {
+      window.recaptchaVerifierB = new RecaptchaVerifier(auth, 'recaptcha-builder', { size: 'invisible' });
+    }
+  }, [step]);
 
   const update = (section, data) =>
     setFormData(prev => ({ ...prev, [section]: typeof data === 'string' ? data : { ...prev[section], ...data } }));
 
-  const handleSubmit = async () => {
+  const handleSendOtp = async () => {
+    setError(''); setLoading(true);
+    const phone = formData.personalInfo.phone;
+    if (!phone) { setError('Phone number missing in Personal Info'); setStep(1); setLoading(false); return; }
+    
+    // Developer / Demo Bypass
+    if (isDemoMode || phone === '+910000000000') {
+      setConfirmationResult({ confirm: async () => true });
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const result = await signInWithPhoneNumber(auth, phone, window.recaptchaVerifierB);
+      setConfirmationResult(result);
+    } catch (err) { setError(err.message); }
+    setLoading(false);
+  };
+
+  const handleVerifyAndSubmit = async () => {
     setLoading(true); setError('');
+    try {
+      await confirmationResult.confirm(otp);
+      await handleSubmit();
+    } catch (err) { setError('Invalid OTP. ' + err.message); setLoading(false); }
+  };
+
+  const handleSubmit = async () => {
     const willCase = {
       caseId: `WILL-${new Date().getFullYear()}-${Math.floor(Math.random() * 9000 + 1000)}`,
       status: 'witness_pending', createdAt: new Date().toISOString(),
@@ -42,7 +79,7 @@ const WillBuilder = () => {
       beneficiaries: formData.distribution.split(',').map(s=>s.trim()).filter(Boolean),
       specialWishes: formData.specialWishes, witnesses: [],
       document: { pdfUrl: '', hash: '', generatedAt: '' },
-      registration: {}, timeline: [{ step: 'CREATION', status: 'completed', timestamp: new Date().toISOString(), actor: user?.uid, note: 'Drafted' }]
+      registration: {}, timeline: [{ step: 'CREATION', status: 'completed', timestamp: new Date().toISOString(), actor: user?.uid, note: 'Drafted & Verified by Testator via OTP' }]
     };
     try { await processWillDocument(willCase); navigate('/dashboard'); }
     catch (err) { setError(err.message); }
@@ -162,28 +199,66 @@ const WillBuilder = () => {
                   <Check size={16} className="text-navy" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-navy mb-1 text-sm">Ready to Generate</h4>
-                  <p className="text-slate-600 text-sm">A legally structured PDF will be generated, cryptographically hashed, and stored securely.</p>
+                  <h4 className="font-bold text-navy mb-1 text-sm">Draft Complete</h4>
+                  <p className="text-slate-600 text-sm">Your details have been captured. Next, verify your identity to officially submit.</p>
                 </div>
               </div>
             </div>
           </div>
         )}
 
+        {step === 6 && (
+          <div className="animate-slide-up space-y-6 text-center py-4">
+            <div className="w-16 h-16 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center mx-auto mb-4">
+              <ShieldCheck className="text-navy" size={32} />
+            </div>
+            <div id="recaptcha-builder" />
+            <div>
+              <h3 className="text-xl font-bold text-navy">Final Identity Verification</h3>
+              <p className="text-sm text-slate-600 mt-1">To officially hash and register this Will, an OTP will be sent to your registered number: <strong className="text-navy">{formData.personalInfo.phone}</strong></p>
+            </div>
+
+            {!confirmationResult ? (
+              <button onClick={handleSendOtp} disabled={loading} className="btn-primary w-full max-w-sm mx-auto">
+                {loading ? 'Processing…' : <>Send Verification OTP <ArrowRight size={18} /></>}
+              </button>
+            ) : (
+              <div className="space-y-5 animate-slide-up">
+                <div className="flex flex-col gap-2 max-w-sm mx-auto">
+                  <label className="form-label text-left">Enter 6-Digit OTP</label>
+                  <input 
+                    type="text" 
+                    value={otp} 
+                    onChange={e => setOtp(e.target.value)} 
+                    placeholder="000000"
+                    maxLength={6}
+                    className="form-input text-center text-2xl tracking-[0.5em] font-bold h-16"
+                  />
+                </div>
+                <button onClick={handleVerifyAndSubmit} disabled={loading || otp.length < 6} className="btn-primary w-full max-w-sm mx-auto">
+                  {loading ? 'Finalizing Will…' : <>Verify & Securely Submit <Check size={18} /></>}
+                </button>
+                <button onClick={() => setConfirmationResult(null)} className="text-xs text-slate-400 hover:text-navy transition-colors">Didn't receive? Try again</button>
+              </div>
+            )}
+
+            <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl text-xs text-amber-700 max-w-sm mx-auto leading-relaxed">
+              ⚠️ <strong>Legal Note:</strong> Verifying this OTP acts as your digital signature on the document hash.
+            </div>
+          </div>
+        )}
+
         {/* Nav */}
         <div className="flex items-center justify-between mt-8 pt-6 border-t border-slate-200">
-          <button onClick={() => setStep(s => Math.max(s-1,1))} disabled={step===1} className="btn-secondary disabled:opacity-30">
+          <button onClick={() => setStep(s => Math.max(s-1,1))} disabled={step===1 || loading} className="btn-secondary disabled:opacity-30">
             <ChevronLeft size={18} /> Back
           </button>
           <div className="flex gap-2">
-            <button onClick={()=>alert('Draft saved')} className="btn-ghost text-xs"><Save size={14} /> Save</button>
             {step < 5 ? (
-              <button onClick={() => setStep(s => Math.min(s+1,5))} className="btn-primary">Next <ChevronRight size={18} /></button>
-            ) : (
-              <button onClick={handleSubmit} disabled={loading} className="btn-primary">
-                {loading ? 'Generating…' : <>Generate & Submit <Check size={16} /></>}
-              </button>
-            )}
+              <button onClick={() => setStep(s => Math.min(s+1,6))} className="btn-primary">Next <ChevronRight size={18} /></button>
+            ) : step === 5 ? (
+              <button onClick={() => setStep(6)} className="btn-primary">Proceed to Verification <ArrowRight size={18} /></button>
+            ) : null}
           </div>
         </div>
       </div>

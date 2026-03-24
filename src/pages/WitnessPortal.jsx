@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
+import WirasatLogo from '../components/WirasatLogo';
 import { db, auth } from '../firebase';
 import { doc, getDoc, updateDoc, collection, getDocs } from 'firebase/firestore';
 import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
@@ -63,8 +64,8 @@ const WitnessPortal = () => {
     <div className="min-h-screen bg-slate-50 flex flex-col relative overflow-hidden">
       <div className="absolute inset-0 gradient-mesh pointer-events-none" />
       <header className="bg-white/90 backdrop-blur-2xl border-b border-slate-200 px-6 py-4 flex items-center gap-3 relative z-10">
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-navy to-saffron flex items-center justify-center"><Scale size={15} className="text-navy" /></div>
-        <span className="text-navy font-bold">WillMaker</span><span className="text-slate-500 text-sm">· Witness Portal</span>
+        <WirasatLogo className="w-8 h-8 drop-shadow-md text-navy" />
+        <span className="text-navy font-bold">Wirasat</span><span className="text-slate-500 text-sm">· Witness Portal</span>
       </header>
       <div id="recaptcha-w" />
       <div className="flex-1 flex items-center justify-center p-6 relative z-10">
