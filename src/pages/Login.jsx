@@ -76,8 +76,18 @@ const Login = () => {
       const result = await confirmationResult.confirm(otp);
       const snap = await getDoc(doc(db, 'users', result.user.uid));
       if (!snap.exists()) { await signOut(auth); setError('User not found. Please register.'); setStep(1); return; }
-      if (!bcrypt.compareSync(password, snap.data().password)) { await signOut(auth); setError('Incorrect password.'); setStep(1); return; }
-      navigate('/dashboard');
+      
+      // Verify password after OTP
+      if (!bcrypt.compareSync(password, snap.data().password)) { 
+        await signOut(auth); setError('Incorrect password.'); setStep(1); return; 
+      }
+      
+      const role = snap.data().role;
+      if (role === 'registrar') {
+        navigate('/registrar/dashboard');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err) { setError('Invalid OTP. ' + err.message); }
     setLoading(false);
   };
@@ -187,7 +197,7 @@ const Login = () => {
             {step === 1 ? (
               <div className="glass-strong rounded-3xl p-8">
                 <h3 className="text-2xl font-bold text-navy mb-1">Sign in</h3>
-                <p className="text-slate-600 text-sm mb-8">Enter your credentials to continue</p>
+                <p className="text-slate-600 text-sm mb-8">Enter your phone number to receive an OTP</p>
 
                 {error && (
                   <div className="mb-5 flex items-start gap-2 bg-red-500/10 border border-red-500/20 text-red-400 text-sm p-3.5 rounded-xl">
@@ -202,19 +212,6 @@ const Login = () => {
                       <Phone size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
                       <input type="tel" required value={phone} onChange={e => setPhone(e.target.value)}
                         className="form-input pl-11" placeholder="+91XXXXXXXXXX" />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="form-label">Password</label>
-                    <div className="relative">
-                      <Lock size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
-                      <input type={showPass ? 'text' : 'password'} required value={password}
-                        onChange={e => setPassword(e.target.value)}
-                        className="form-input pl-11 pr-11" placeholder="Enter your password" />
-                      <button type="button" onClick={() => setShowPass(s => !s)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-500">
-                        {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
-                      </button>
                     </div>
                   </div>
                   <button type="submit" disabled={loading} className="btn-primary w-full py-3.5">
@@ -232,8 +229,8 @@ const Login = () => {
                 <button onClick={() => setStep(1)} className="flex items-center gap-1 text-slate-600 hover:text-navy text-sm mb-6 transition-colors">
                   <ArrowLeft size={14} /> Back
                 </button>
-                <h3 className="text-2xl font-bold text-navy mb-1">Verify OTP</h3>
-                <p className="text-slate-600 text-sm mb-8">Sent to <span className="text-slate-700">{phone}</span></p>
+                <h3 className="text-2xl font-bold text-navy mb-1">Final Verification</h3>
+                <p className="text-slate-600 text-sm mb-8">Enter the OTP sent to <span className="text-slate-700">{phone}</span> and your password</p>
 
                 {error && (
                   <div className="mb-5 flex items-start gap-2 bg-red-500/10 border border-red-500/20 text-red-400 text-sm p-3.5 rounded-xl">
@@ -242,14 +239,32 @@ const Login = () => {
                 )}
 
                 <form onSubmit={handleVerify} className="space-y-6">
-                  <OtpInput value={otp} onChange={setOtp} />
+                  <div className="space-y-2">
+                    <label className="form-label">6-Digit OTP</label>
+                    <OtpInput value={otp} onChange={setOtp} />
+                  </div>
+                  
+                  <div>
+                    <label className="form-label">Account Password</label>
+                    <div className="relative">
+                      <Lock size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+                      <input type={showPass ? 'text' : 'password'} required value={password}
+                        onChange={e => setPassword(e.target.value)}
+                        className="form-input pl-11 pr-11" placeholder="Enter your password" />
+                      <button type="button" onClick={() => setShowPass(s => !s)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-500">
+                        {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
+                      </button>
+                    </div>
+                  </div>
+
                   <button type="submit" disabled={loading || otp.length < 6} className="btn-primary w-full py-3.5">
-                    {loading ? 'Verifying…' : <>Verify & Sign In <ArrowRight size={16} /></>}
+                    {loading ? 'Verifying…' : <>Verify & Access Portal <ArrowRight size={16} /></>}
                   </button>
                 </form>
                 <div className="mt-5 text-center text-sm text-slate-500">
                   {countdown > 0
-                    ? <span>Resend in <span className="text-slate-500 font-semibold">{countdown}s</span></span>
+                    ? <span>Resend OTP in <span className="text-slate-500 font-semibold">{countdown}s</span></span>
                     : <button onClick={handleSendOtp} className="text-navy font-semibold hover:text-saffron transition-colors">Resend OTP</button>
                   }
                 </div>
