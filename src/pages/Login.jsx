@@ -4,7 +4,7 @@ import { auth, db } from '../firebase';
 import { RecaptchaVerifier, signInWithPhoneNumber, signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import bcrypt from 'bcryptjs';
-import { Scale, Eye, EyeOff, Phone, Lock, ArrowRight, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Scale, Eye, EyeOff, Phone, Lock, ArrowRight, AlertCircle, ArrowLeft, UserCircle, ShieldCheck, Zap } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 const OtpInput = ({ value, onChange }) => {
@@ -82,6 +82,49 @@ const Login = () => {
     setLoading(false);
   };
 
+  const handleSeedLive = async () => {
+    setError(''); setLoading(true);
+    try {
+      const { collection, addDoc } = await import('firebase/firestore');
+      const sampleCases = [
+        {
+          testatorId: 'mock-citizen',
+          testatorName: 'Rajesh Kumar',
+          status: 'witness_pending',
+          createdAt: new Date().toISOString(),
+          content: {
+            assets: [{ type: 'Property', value: '1.5 Cr', owner: 'Self' }],
+            beneficiaries: [{ name: 'Sita Kumar', relation: 'Spouse', share: '100%' }]
+          },
+          timeline: [
+            { step: 'CREATION', status: 'COMPLETED', note: 'Will draft finalized.', timestamp: new Date(Date.now()-86400000).toISOString() },
+            { step: 'DOCUMENT', status: 'COMPLETED', note: 'PDF Generated & Hashed.', timestamp: new Date(Date.now()-82800000).toISOString() }
+          ]
+        },
+        {
+          testatorId: 'mock-citizen',
+          testatorName: 'Rajesh Kumar',
+          status: 'registrar_review',
+          createdAt: new Date().toISOString(),
+          district: 'Delhi',
+          timeline: [
+            { step: 'CREATION', status: 'COMPLETED', note: 'Will draft finalized.', timestamp: new Date(Date.now()-172800000).toISOString() },
+            { step: 'DOCUMENT', status: 'COMPLETED', note: 'PDF Generated & Hashed.', timestamp: new Date(Date.now()-169200000).toISOString() },
+            { step: 'WITNESS', status: 'COMPLETED', note: 'All witnesses signed.', timestamp: new Date(Date.now()-165600000).toISOString() }
+          ]
+        }
+      ];
+
+      for (const c of sampleCases) {
+        await addDoc(collection(db, 'cases'), c);
+      }
+      alert('Success! 2 cases have been seeded into your Live Firestore DB. Refresh your console.');
+    } catch (err) {
+      setError('Seeding failed: ' + err.message);
+    }
+    setLoading(false);
+  };
+
   return (
     <div className="min-h-screen flex bg-slate-50 relative overflow-hidden">
       {/* Background mesh */}
@@ -91,10 +134,8 @@ const Login = () => {
       {/* Left — branding */}
       <div className="hidden lg:flex w-[45%] flex-col justify-between px-14 py-12 relative z-10">
         <Link to="/" className="flex items-center gap-2.5 group">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-navy to-saffron flex items-center justify-center shadow-glow-sm">
-            <Scale size={15} className="text-navy" />
-          </div>
-          <span className="font-bold text-lg">Will<span className="text-gradient">Maker</span></span>
+          <WirasatLogo className="w-8 h-8 drop-shadow-md text-navy" />
+          <span className="font-bold text-lg">Wira<span className="text-gradient">sat</span></span>
         </Link>
 
         <div>
@@ -118,17 +159,15 @@ const Login = () => {
           </div>
         </div>
 
-        <p className="text-slate-600 text-xs">© {new Date().getFullYear()} WillMaker · Government of India</p>
+        <p className="text-slate-600 text-xs">© {new Date().getFullYear()} Wirasat · Government of India</p>
       </div>
 
       {/* Right — form */}
       <div className="flex-1 flex flex-col relative z-10">
         <div className="flex items-center justify-between px-8 pt-6">
           <Link to="/" className="flex lg:hidden items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-navy to-saffron flex items-center justify-center">
-              <Scale size={15} className="text-navy" />
-            </div>
-            <span className="font-bold text-navy">WillMaker</span>
+            <WirasatLogo className="w-8 h-8 drop-shadow-md text-navy" />
+            <span className="font-bold text-navy">Wirasat</span>
           </Link>
           <div className="ml-auto flex gap-1">
             {['en','hi','mr'].map(lng => (
@@ -216,6 +255,42 @@ const Login = () => {
                 </div>
               </div>
             )}
+            {/* Presentation Helpers */}
+            <div className="mt-8 pt-6 border-t border-slate-100 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1 flex items-center gap-1">
+                    <Zap size={10} className="text-saffron" /> Demo Mode
+                  </p>
+                  <p className="text-xs text-slate-500">Enable if Wi-Fi/Firebase is dead</p>
+                </div>
+                <button 
+                  type="button"
+                  onClick={toggleDemoMode}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${isDemoMode ? 'bg-navy' : 'bg-slate-200'}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isDemoMode ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+              </div>
+
+              {!isDemoMode && (
+                <div className="flex items-center justify-between animate-fade-in">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-500 mb-1 flex items-center gap-1">
+                      🚀 Live Seeder
+                    </p>
+                    <p className="text-xs text-slate-500">Populate your Firestore DB now</p>
+                  </div>
+                  <button 
+                    onClick={handleSeedLive}
+                    disabled={loading}
+                    className="text-[10px] font-bold bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-lg border border-emerald-100 hover:bg-emerald-100 transition-all disabled:opacity-50"
+                  >
+                    {loading ? 'Seeding...' : 'Seed Live Data'}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
